@@ -170,6 +170,8 @@ const sources = [
   },
 ];
 
+const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:3001';
+
 function getOffset(index, selectedIndex, total) {
   const rawOffset = index - selectedIndex;
   const wrappedOffset =
@@ -202,6 +204,10 @@ function getOrbitStyle(offset) {
 export default function App() {
   const [selectedMood, setSelectedMood] = useState(moods[0].id);
   const [isRevealed, setIsRevealed] = useState(false);
+  const [journalText, setJournalText] = useState('');
+  const [aiReflection, setAiReflection] = useState(null);
+  const [aiError, setAiError] = useState('');
+  const [isAiLoading, setIsAiLoading] = useState(false);
   const guidanceRef = useRef(null);
   const selectedIndex = moods.findIndex((item) => item.id === selectedMood);
   const mood = useMemo(
@@ -222,6 +228,48 @@ export default function App() {
     window.setTimeout(() => {
       guidanceRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }, 420);
+  };
+
+  const requestAiReflection = async (event) => {
+    event.preventDefault();
+
+    if (!journalText.trim()) {
+      setAiError('Tulis sedikit ceritamu dulu.');
+      return;
+    }
+
+    setIsAiLoading(true);
+    setAiError('');
+    setAiReflection(null);
+    setIsRevealed(true);
+
+    try {
+      const response = await fetch(`${API_URL}/api/ai/reflection`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          mood: mood.label,
+          note: journalText,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error ?? 'AI belum bisa membuat refleksi.');
+      }
+
+      setAiReflection(data.reflection);
+      window.setTimeout(() => {
+        guidanceRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }, 160);
+    } catch (error) {
+      setAiError(error.message);
+    } finally {
+      setIsAiLoading(false);
+    }
   };
 
   useEffect(() => {
@@ -322,6 +370,33 @@ export default function App() {
         </div>
       </section>
 
+      <section className="journal-section" aria-labelledby="journal-title">
+        <div className="journal-copy">
+          <p className="eyebrow">AI companion</p>
+          <h2 id="journal-title">Ceritakan sedikit yang terjadi hari ini</h2>
+          <p>
+            AI akan membaca mood yang kamu pilih dan ceritamu, lalu memberi
+            validasi emosi, sisi positif, latihan singkat, afirmasi, dan satu
+            langkah kecil yang bisa kamu lakukan.
+          </p>
+        </div>
+
+        <form className="journal-form" onSubmit={requestAiReflection}>
+          <label htmlFor="journal-entry">Catatan hari ini</label>
+          <textarea
+            id="journal-entry"
+            onChange={(event) => setJournalText(event.target.value)}
+            placeholder="Contoh: hari ini aku malu jawab pertanyaan salah di depan kelas..."
+            rows="7"
+            value={journalText}
+          />
+          {aiError ? <p className="form-error">{aiError}</p> : null}
+          <button disabled={isAiLoading} type="submit">
+            {isAiLoading ? 'Menenangkan pikiran...' : 'Minta refleksi AI'}
+          </button>
+        </form>
+      </section>
+
       <section
         className="reflection-grid"
         aria-label={`Panduan untuk rasa ${mood.label}`}
@@ -358,6 +433,34 @@ export default function App() {
           <span>{mood.source}</span>
         </article>
       </section>
+
+      {aiReflection ? (
+        <section className="ai-result-section" aria-label="Hasil refleksi AI">
+          <article className="ai-result-main">
+            <p className="eyebrow">Refleksi AI</p>
+            <h2>{aiReflection.validation}</h2>
+            <p>{aiReflection.positive_reframe}</p>
+          </article>
+          <div className="ai-result-grid">
+            <article>
+              <span>Latihan sekarang</span>
+              <p>{aiReflection.practice}</p>
+            </article>
+            <article>
+              <span>Langkah kecil</span>
+              <p>{aiReflection.small_step}</p>
+            </article>
+            <article>
+              <span>Afirmasi</span>
+              <p>{aiReflection.affirmation}</p>
+            </article>
+            <article>
+              <span>Journaling lanjut</span>
+              <p>{aiReflection.journal_prompt}</p>
+            </article>
+          </div>
+        </section>
+      ) : null}
 
       <section className="tool-section" aria-labelledby="tool-title">
         <div className="section-heading">
