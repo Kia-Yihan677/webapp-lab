@@ -102,6 +102,39 @@ const tools = [
   },
 ];
 
+const dailyAffirmationConditions = [
+  {
+    id: 'kurang-diri-penampilan',
+    label: 'Merasa kurang',
+    headline: 'Saat nilai diri terasa turun karena cermin, komentar, atau perbandingan',
+    note: 'Afirmasi bekerja paling sehat saat kalimatnya terasa mungkin dipercaya: bukan memaksa "aku sempurna", tapi mengarahkan otak ke penilaian diri yang lebih adil dan penuh belas kasih.',
+    script: [
+      'Aku tidak harus terlihat sempurna untuk pantas dihargai.',
+      'Tubuhku bukan proyek untuk dibenci. Ia rumah yang sedang kupelajari rawat.',
+      'Aku boleh ingin bertumbuh tanpa menjadikan diriku musuh.',
+      'Hari ini aku memilih melihat diriku dengan lebih adil, bukan lebih kejam.',
+    ],
+    repeat: 'Ulangi pelan 3 kali sambil bernapas. Saat mengucapnya, cari satu bukti kecil yang nyata: bagian tubuh yang membantumu hidup, sifat baik yang masih ada, atau usaha kecil yang sudah kamu lakukan.',
+    science: [
+      {
+        title: 'Self-affirmation mengaktifkan sistem nilai dan diri',
+        text: 'Studi fMRI menemukan refleksi afirmatif pada nilai personal berkaitan dengan aktivitas di ventromedial prefrontal cortex, ventral striatum, medial prefrontal cortex, dan posterior cingulate. Area-area ini terlibat dalam valuasi, reward, dan pemrosesan diri.',
+        source: 'Cascio et al., 2016',
+      },
+      {
+        title: 'Positive self-talk mengubah konektivitas otak',
+        text: 'Studi Scientific Reports 2021 menunjukkan positive dan negative self-talk memodulasi jaringan reward-motivation, default mode, dan central-executive secara berbeda. Jadi kata-kata ke diri sendiri bukan sekadar "mood", tapi ikut mengubah keadaan jaringan otak.',
+        source: 'Kim et al., 2021',
+      },
+      {
+        title: 'Efeknya nyata, tapi bukan sihir instan',
+        text: 'Meta-analisis self-talk pada performa menemukan intervensi self-talk efektif secara perilaku. Bukti terbaik mendukung latihan yang spesifik, diulang, dan terhubung dengan tindakan kecil, bukan afirmasi kosong yang dipaksakan.',
+        source: 'Hatzigeorgiadis et al., 2011',
+      },
+    ],
+  },
+];
+
 const pivotSteps = [
   {
     title: 'Capture',
@@ -168,6 +201,18 @@ const sources = [
     label: 'Torre & Lieberman, Emotion Review, 2018',
     href: 'https://journals.sagepub.com/doi/10.1177/1754073917742706',
   },
+  {
+    label: 'Kim et al., Scientific Reports, 2021',
+    href: 'https://www.nature.com/articles/s41598-021-94328-9',
+  },
+  {
+    label: 'Hatzigeorgiadis et al., Perspectives on Psychological Science, 2011',
+    href: 'https://pubmed.ncbi.nlm.nih.gov/26167788/',
+  },
+  {
+    label: 'Dutcher et al., Social Cognitive and Affective Neuroscience, 2020',
+    href: 'https://academic.oup.com/scan/article/15/10/1086/5815969',
+  },
 ];
 
 const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:3001';
@@ -202,7 +247,11 @@ function getOrbitStyle(offset) {
 }
 
 export default function App() {
+  const [currentPage, setCurrentPage] = useState('home');
   const [selectedMood, setSelectedMood] = useState(moods[0].id);
+  const [selectedAffirmationCondition, setSelectedAffirmationCondition] = useState(
+    dailyAffirmationConditions[0].id,
+  );
   const [isRevealed, setIsRevealed] = useState(false);
   const [journalText, setJournalText] = useState('');
   const [aiReflection, setAiReflection] = useState(null);
@@ -214,6 +263,13 @@ export default function App() {
     () => moods.find((item) => item.id === selectedMood) ?? moods[0],
     [selectedMood],
   );
+  const dailyAffirmation = useMemo(
+    () =>
+      dailyAffirmationConditions.find(
+        (item) => item.id === selectedAffirmationCondition,
+      ) ?? dailyAffirmationConditions[0],
+    [selectedAffirmationCondition],
+  );
 
   const selectMoodByIndex = (nextIndex) => {
     const safeIndex = (nextIndex + moods.length) % moods.length;
@@ -223,6 +279,14 @@ export default function App() {
 
   const goPrevious = () => selectMoodByIndex(selectedIndex - 1);
   const goNext = () => selectMoodByIndex(selectedIndex + 1);
+  const goToAffirmationPage = () => {
+    setCurrentPage('affirmation');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+  const goToHomePage = () => {
+    setCurrentPage('home');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
   const revealGuidance = () => {
     setIsRevealed(true);
     window.setTimeout(() => {
@@ -273,7 +337,7 @@ export default function App() {
   };
 
   useEffect(() => {
-    if (isRevealed) {
+    if (currentPage !== 'home' || isRevealed) {
       return undefined;
     }
 
@@ -286,10 +350,136 @@ export default function App() {
     }, 3200);
 
     return () => window.clearInterval(timer);
-  }, [isRevealed]);
+  }, [currentPage, isRevealed]);
+
+  if (currentPage === 'affirmation') {
+    return (
+      <main className="app-shell affirmation-page">
+        <button
+          aria-label="Kembali ke halaman perasaan"
+          className="page-nav-button previous-page-button"
+          onClick={goToHomePage}
+          title="Kembali"
+          type="button"
+        >
+          ‹
+        </button>
+
+        <section className="affirmation-hero" aria-labelledby="affirmation-page-title">
+          <div className="affirmation-copy">
+            <p className="eyebrow">Afirmasi Hari Ini</p>
+            <h1 id="affirmation-page-title">Bercermin dengan lebih lembut</h1>
+            <p className="lead">
+              Untuk hari ketika kamu merasa kurang dari dalam diri, dari wajah,
+              tubuh, atau cara kamu terlihat di mata orang lain.
+            </p>
+          </div>
+
+          <div className="mirror-scene" aria-label="Karakter tersenyum saat bercermin">
+            <div className="mirror-frame">
+              <span className="mirror-shine" />
+              <div className="mirror-reflection">
+                <span className="mirror-face">
+                  <span className="mirror-eye left-eye" />
+                  <span className="mirror-eye right-eye" />
+                  <span className="mirror-smile" />
+                </span>
+                <span className="mirror-body" />
+              </div>
+            </div>
+            <div className="mirror-person">
+              <span className="mirror-person-head">
+                <span className="mirror-eye left-eye" />
+                <span className="mirror-eye right-eye" />
+                <span className="mirror-smile" />
+              </span>
+              <span className="mirror-person-body" />
+            </div>
+            <span className="mirror-heart" aria-hidden="true">♡</span>
+          </div>
+        </section>
+
+        <section className="daily-affirmation-section is-page" aria-labelledby="daily-affirmation-title">
+          <div className="daily-affirmation-heading">
+            <div>
+              <p className="eyebrow">Pilihan kondisi</p>
+              <h2 id="daily-affirmation-title">Afirmasi yang bisa kamu ulang hari ini</h2>
+            </div>
+            <div className="condition-buttons" aria-label="Pilihan kondisi afirmasi">
+              {dailyAffirmationConditions.map((condition) => (
+                <button
+                  className={
+                    condition.id === selectedAffirmationCondition
+                      ? 'condition-button is-active'
+                      : 'condition-button'
+                  }
+                  key={condition.id}
+                  onClick={() => setSelectedAffirmationCondition(condition.id)}
+                  type="button"
+                >
+                  {condition.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="daily-affirmation-layout">
+            <article className="daily-script-card">
+              <span>Kondisi</span>
+              <h3>{dailyAffirmation.headline}</h3>
+              <p>{dailyAffirmation.note}</p>
+              <div className="daily-script-list">
+                {dailyAffirmation.script.map((line) => (
+                  <strong key={line}>{line}</strong>
+                ))}
+              </div>
+              <em>{dailyAffirmation.repeat}</em>
+            </article>
+
+            <div className="daily-science-grid">
+              {dailyAffirmation.science.map((item) => (
+                <article className="daily-science-card" key={item.title}>
+                  <span>{item.source}</span>
+                  <h3>{item.title}</h3>
+                  <p>{item.text}</p>
+                </article>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        <section className="sources-strip" aria-label="Referensi ilmiah">
+          <span>Referensi awal</span>
+          <div>
+            {sources
+              .filter((source) =>
+                ['Cascio', 'Kim', 'Hatzigeorgiadis', 'Dutcher'].some((name) =>
+                  source.label.includes(name),
+                ),
+              )
+              .map((source) => (
+                <a href={source.href} key={source.href} rel="noreferrer" target="_blank">
+                  {source.label}
+                </a>
+              ))}
+          </div>
+        </section>
+      </main>
+    );
+  }
 
   return (
     <main className={isRevealed ? 'app-shell is-revealed' : 'app-shell'}>
+      <button
+        aria-label="Buka halaman afirmasi"
+        className="page-nav-button next-page-button"
+        onClick={goToAffirmationPage}
+        title="Afirmasi Hari Ini"
+        type="button"
+      >
+        ›
+      </button>
+
       <section className="today-panel" aria-labelledby="dashboard-title">
         <div className="title-block">
           <p className="eyebrow">Tumbuh hari ini</p>
