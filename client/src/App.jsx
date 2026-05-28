@@ -120,16 +120,19 @@ const dailyAffirmationConditions = [
         title: 'Self-affirmation mengaktifkan sistem nilai dan diri',
         text: 'Studi fMRI menemukan refleksi afirmatif pada nilai personal berkaitan dengan aktivitas di ventromedial prefrontal cortex, ventral striatum, medial prefrontal cortex, dan posterior cingulate. Area-area ini terlibat dalam valuasi, reward, dan pemrosesan diri.',
         source: 'Cascio et al., 2016',
+        href: 'https://pubmed.ncbi.nlm.nih.gov/26917214/',
       },
       {
         title: 'Positive self-talk mengubah konektivitas otak',
         text: 'Studi Scientific Reports 2021 menunjukkan positive dan negative self-talk memodulasi jaringan reward-motivation, default mode, dan central-executive secara berbeda. Jadi kata-kata ke diri sendiri bukan sekadar "mood", tapi ikut mengubah keadaan jaringan otak.',
         source: 'Kim et al., 2021',
+        href: 'https://www.nature.com/articles/s41598-021-94328-9',
       },
       {
         title: 'Efeknya nyata, tapi bukan sihir instan',
         text: 'Meta-analisis self-talk pada performa menemukan intervensi self-talk efektif secara perilaku. Bukti terbaik mendukung latihan yang spesifik, diulang, dan terhubung dengan tindakan kecil, bukan afirmasi kosong yang dipaksakan.',
         source: 'Hatzigeorgiadis et al., 2011',
+        href: 'https://pubmed.ncbi.nlm.nih.gov/26167788/',
       },
     ],
   },
@@ -216,6 +219,8 @@ const sources = [
 ];
 
 const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:3001';
+const BACKGROUND_MUSIC_URL =
+  import.meta.env.VITE_BACKGROUND_MUSIC_URL ?? '/BABIMBUM-soundtrack1.mp3';
 
 function getOffset(index, selectedIndex, total) {
   const rawOffset = index - selectedIndex;
@@ -258,7 +263,13 @@ export default function App() {
   const [aiError, setAiError] = useState('');
   const [isAiLoading, setIsAiLoading] = useState(false);
   const [isScienceOpen, setIsScienceOpen] = useState(false);
+  const [selectedScienceIndex, setSelectedScienceIndex] = useState(0);
+  const [isAudioMuted, setIsAudioMuted] = useState(false);
+  const [hasAudioStarted, setHasAudioStarted] = useState(false);
+  const audioRef = useRef(null);
+  const isAudioMutedRef = useRef(false);
   const guidanceRef = useRef(null);
+  const scienceTouchStartX = useRef(null);
   const selectedIndex = moods.findIndex((item) => item.id === selectedMood);
   const mood = useMemo(
     () => moods.find((item) => item.id === selectedMood) ?? moods[0],
@@ -271,6 +282,8 @@ export default function App() {
       ) ?? dailyAffirmationConditions[0],
     [selectedAffirmationCondition],
   );
+  const selectedScience =
+    dailyAffirmation.science[selectedScienceIndex] ?? dailyAffirmation.science[0];
 
   const selectMoodByIndex = (nextIndex) => {
     const safeIndex = (nextIndex + moods.length) % moods.length;
@@ -280,6 +293,44 @@ export default function App() {
 
   const goPrevious = () => selectMoodByIndex(selectedIndex - 1);
   const goNext = () => selectMoodByIndex(selectedIndex + 1);
+  const selectAffirmationCondition = (conditionId) => {
+    setSelectedAffirmationCondition(conditionId);
+    setSelectedScienceIndex(0);
+  };
+  const openSciencePopup = () => {
+    setSelectedScienceIndex(0);
+    setIsScienceOpen(true);
+  };
+  const goPreviousScience = () => {
+    setSelectedScienceIndex((currentIndex) =>
+      (currentIndex - 1 + dailyAffirmation.science.length) %
+      dailyAffirmation.science.length,
+    );
+  };
+  const goNextScience = () => {
+    setSelectedScienceIndex((currentIndex) =>
+      (currentIndex + 1) % dailyAffirmation.science.length,
+    );
+  };
+  const handleScienceTouchEnd = (event) => {
+    if (scienceTouchStartX.current === null) {
+      return;
+    }
+
+    const distance = event.changedTouches[0].clientX - scienceTouchStartX.current;
+    scienceTouchStartX.current = null;
+
+    if (Math.abs(distance) < 40) {
+      return;
+    }
+
+    if (distance > 0) {
+      goPreviousScience();
+      return;
+    }
+
+    goNextScience();
+  };
   const goToAffirmationPage = () => {
     setCurrentPage('affirmation');
     setIsScienceOpen(false);
@@ -295,6 +346,10 @@ export default function App() {
     window.setTimeout(() => {
       guidanceRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }, 420);
+  };
+  const toggleAudio = () => {
+    setHasAudioStarted(true);
+    setIsAudioMuted((currentValue) => !currentValue);
   };
 
   const requestAiReflection = async (event) => {
@@ -370,9 +425,79 @@ export default function App() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isScienceOpen]);
 
+  useEffect(() => {
+    const audio = audioRef.current;
+
+    if (!audio) {
+      return;
+    }
+
+    audio.loop = true;
+    audio.volume = 0.34;
+  }, []);
+
+  useEffect(() => {
+    isAudioMutedRef.current = isAudioMuted;
+  }, [isAudioMuted]);
+
+  useEffect(() => {
+    const startAudioAfterInteraction = () => {
+      if (!isAudioMutedRef.current) {
+        setHasAudioStarted(true);
+      }
+    };
+
+    window.addEventListener('keydown', startAudioAfterInteraction, { once: true });
+    window.addEventListener('pointerdown', startAudioAfterInteraction, { once: true });
+
+    return () => {
+      window.removeEventListener('keydown', startAudioAfterInteraction);
+      window.removeEventListener('pointerdown', startAudioAfterInteraction);
+    };
+  }, []);
+
+  useEffect(() => {
+    const audio = audioRef.current;
+
+    if (!audio) {
+      return;
+    }
+
+    audio.muted = isAudioMuted;
+
+    if (isAudioMuted) {
+      audio.pause();
+      return;
+    }
+
+    if (!hasAudioStarted) {
+      return;
+    }
+
+    audio.play().catch(() => {});
+  }, [hasAudioStarted, isAudioMuted]);
+
+  const audioControl = (
+    <>
+      <audio ref={audioRef} preload="auto" src={BACKGROUND_MUSIC_URL} />
+      <button
+        aria-label={isAudioMuted ? 'Nyalakan musik' : 'Matikan musik'}
+        aria-pressed={isAudioMuted}
+        className={isAudioMuted ? 'audio-toggle is-muted' : 'audio-toggle'}
+        onClick={toggleAudio}
+        title={isAudioMuted ? 'Nyalakan musik' : 'Matikan musik'}
+        type="button"
+      >
+        <span aria-hidden="true">♪</span>
+      </button>
+    </>
+  );
+
   if (currentPage === 'affirmation') {
     return (
       <main className="app-shell affirmation-page">
+        {audioControl}
+
         <button
           aria-label="Kembali ke halaman perasaan"
           className="page-nav-button previous-page-button"
@@ -415,7 +540,7 @@ export default function App() {
             </div>
             <button
               className="science-popup-button mirror-question-button"
-              onClick={() => setIsScienceOpen(true)}
+              onClick={openSciencePopup}
               type="button"
             >
               Kenapa afirmasi itu penting?
@@ -439,7 +564,7 @@ export default function App() {
                       : 'condition-button'
                   }
                   key={condition.id}
-                  onClick={() => setSelectedAffirmationCondition(condition.id)}
+                  onClick={() => selectAffirmationCondition(condition.id)}
                   type="button"
                 >
                   {condition.label}
@@ -495,13 +620,47 @@ export default function App() {
                 Dampaknya paling masuk akal saat afirmasi diulang dengan pelan,
                 terasa realistis, dan dihubungkan dengan tindakan kecil.
               </p>
-              <div className="daily-science-grid">
-                {dailyAffirmation.science.map((item) => (
-                  <article className="daily-science-card" key={item.title}>
-                    <span>{item.source}</span>
-                    <h3>{item.title}</h3>
-                    <p>{item.text}</p>
-                  </article>
+              <div
+                className="science-carousel"
+                onTouchEnd={handleScienceTouchEnd}
+                onTouchStart={(event) => {
+                  scienceTouchStartX.current = event.touches[0].clientX;
+                }}
+              >
+                <button
+                  aria-label="Riset sebelumnya"
+                  className="science-carousel-arrow"
+                  onClick={goPreviousScience}
+                  type="button"
+                >
+                  ‹
+                </button>
+                <article className="science-carousel-card" key={selectedScience.title}>
+                  <span>{selectedScience.source}</span>
+                  <h3>{selectedScience.title}</h3>
+                  <p>{selectedScience.text}</p>
+                  <a href={selectedScience.href} rel="noreferrer" target="_blank">
+                    Buka jurnal
+                  </a>
+                </article>
+                <button
+                  aria-label="Riset berikutnya"
+                  className="science-carousel-arrow"
+                  onClick={goNextScience}
+                  type="button"
+                >
+                  ›
+                </button>
+              </div>
+              <div className="science-pagination" aria-label="Pagination riset">
+                {dailyAffirmation.science.map((item, index) => (
+                  <button
+                    aria-label={`Buka riset ${index + 1}: ${item.source}`}
+                    className={index === selectedScienceIndex ? 'is-active' : ''}
+                    key={item.source}
+                    onClick={() => setSelectedScienceIndex(index)}
+                    type="button"
+                  />
                 ))}
               </div>
             </section>
@@ -530,6 +689,8 @@ export default function App() {
 
   return (
     <main className={isRevealed ? 'app-shell is-revealed' : 'app-shell'}>
+      {audioControl}
+
       <button
         aria-label="Buka halaman afirmasi"
         className="page-nav-button next-page-button"
